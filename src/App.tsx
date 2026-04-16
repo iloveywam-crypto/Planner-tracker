@@ -8,20 +8,126 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
-import { motion } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Save, Plus, Trash2, Check, Edit3 } from 'lucide-react';
+
+interface ScheduleItem {
+  time: string;
+  task: string;
+  done: boolean;
+}
+
+interface HabitItem {
+  id: string;
+  label: string;
+  checked: boolean;
+}
 
 export default function App() {
-  const [today] = React.useState(new Date().toLocaleDateString('ko-KR', {
+  const [today] = useState(new Date().toLocaleDateString('ko-KR', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
   }).replace(/\. /g, '. ').replace(/\.$/, ''));
 
+  // --- State Management ---
+  const [schedule, setSchedule] = useState<ScheduleItem[]>([
+    { time: '06:00', task: '', done: false },
+    { time: '08:00', task: '', done: false },
+    { time: '10:00', task: '', done: false },
+    { time: '12:00', task: '', done: false },
+    { time: '14:00', task: '', done: false },
+    { time: '16:00', task: '', done: false },
+    { time: '18:00', task: '', done: false },
+    { time: '20:00', task: '', done: false },
+  ]);
+  const [goals, setGoals] = useState<string[]>(['', '', '']);
+  const [habits, setHabits] = useState<HabitItem[]>([
+    { id: '1', label: '영양제 먹기', checked: false },
+    { id: '2', label: '스트레칭 10분', checked: false },
+  ]);
+  const [tomorrow, setTomorrow] = useState('');
+  const [memo, setMemo] = useState('');
+
+  // Notification for saving
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  // --- Persistence ---
+  useEffect(() => {
+    const savedData = localStorage.getItem('warm-habit-tracker-data');
+    if (savedData) {
+      const data = JSON.parse(savedData);
+      if (data.schedule) setSchedule(data.schedule);
+      if (data.goals) setGoals(data.goals);
+      if (data.habits) setHabits(data.habits);
+      if (data.tomorrow) setTomorrow(data.tomorrow);
+      if (data.memo) setMemo(data.memo);
+    }
+  }, []);
+
+  const saveData = () => {
+    const data = { schedule, goals, habits, tomorrow, memo };
+    localStorage.setItem('warm-habit-tracker-data', JSON.stringify(data));
+    setSaveStatus('저장되었습니다');
+    setTimeout(() => setSaveStatus(null), 2000);
+  };
+
+  // --- Handlers ---
+  const toggleSchedule = (idx: number) => {
+    const newSchedule = [...schedule];
+    newSchedule[idx].done = !newSchedule[idx].done;
+    setSchedule(newSchedule);
+  };
+
+  const updateScheduleTask = (idx: number, value: string) => {
+    const newSchedule = [...schedule];
+    newSchedule[idx].task = value;
+    setSchedule(newSchedule);
+  };
+
+  const updateGoal = (idx: number, value: string) => {
+    const newGoals = [...goals];
+    newGoals[idx] = value;
+    setGoals(newGoals);
+  };
+
+  const toggleHabit = (id: string) => {
+    setHabits(habits.map(h => h.id === id ? { ...h, checked: !h.checked } : h));
+  };
+
+  const addHabit = () => {
+    const newHabit = { id: Date.now().toString(), label: '새 습관', checked: false };
+    setHabits([...habits, newHabit]);
+  };
+
+  const updateHabitLabel = (id: string, label: string) => {
+    setHabits(habits.map(h => h.id === id ? { ...h, label } : h));
+  };
+
+  const deleteHabit = (id: string) => {
+    setHabits(habits.filter(h => h.id !== id));
+  };
+
   return (
-    <div className="min-h-screen bg-warm-bg text-ink p-4 sm:p-8 md:p-12 transition-colors duration-500 flex items-start justify-center">
+    <div className="min-h-screen bg-warm-bg text-ink p-4 sm:p-8 md:p-12 transition-colors duration-500 flex items-start justify-center relative">
+      
+      {/* Save Notification */}
+      <AnimatePresence>
+        {saveStatus && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-8 left-1/2 -translate-x-1/2 bg-ink text-warm-bg px-6 py-2 rounded-full text-xs font-medium tracking-widest z-50 shadow-lg"
+          >
+            {saveStatus}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="w-full max-w-[976px]">
-        {/* Header - Stack on mobile, side-by-side on desktop */}
+        {/* Header */}
         <header className="mb-8 md:mb-12 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 border-b border-ink/5 pb-6">
           <div>
             <motion.h1 
@@ -35,108 +141,130 @@ export default function App() {
               Custom Daily Habit Tracker
             </p>
           </div>
-          <div className="sm:text-right w-full sm:w-auto">
+          <div className="flex flex-col sm:items-end gap-3 w-full sm:w-auto">
             <p className="font-serif italic text-sm text-ink-muted border-l-2 sm:border-l-0 sm:border-r-2 border-pastel-orange pl-3 sm:pl-0 sm:pr-3">
               {today}
             </p>
+            <button 
+              onClick={saveData}
+              className="flex items-center gap-2 bg-ink text-warm-bg px-4 py-2 rounded-lg text-xs font-medium transition-all hover:scale-105 active:scale-95 paper-shadow"
+            >
+              <Save size={14} /> 전체 기록하기
+            </button>
           </div>
         </header>
 
-        {/* Main Layout Grid - 1 col on mobile, 2 col on desktop */}
+        {/* Main Grid */}
         <main className="grid grid-cols-1 md:grid-cols-[400px_1fr] lg:grid-cols-[380px_1fr] gap-8 md:gap-10">
           
-          {/* Left Column (Order 2 on mobile, 1 on desktop if needed, or just let stack) */}
+          {/* Left Column */}
           <div className="flex flex-col gap-8 order-2 md:order-1">
-            {/* Time Schedule Section */}
+            {/* Time Schedule */}
             <section className="paper-texture paper-shadow p-5 sm:p-6 rounded-2xl flex-grow flex flex-col border border-black/5">
-              <h2 className="font-serif text-xl border-b-2 border-pastel-orange inline-block pb-1 mb-6 self-start">
-                시간대별 계획
-              </h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="font-serif text-xl border-b-2 border-pastel-orange inline-block pb-1 self-start">
+                  시간대별 계획
+                </h2>
+              </div>
               <div className="space-y-1">
-                {[
-                  { time: '06:00', task: '새벽 요가 및 확언', done: true },
-                  { time: '08:00', task: '영양제 및 건강한 아침 식사', done: false },
-                  { time: '10:00', task: '딥워크: 핵심 프로젝트 1단계', done: false },
-                  { time: '12:00', task: '팀 미팅 및 점심 식사', done: false },
-                  { time: '14:00', task: '커피 한 잔과 이메일 정리', done: false },
-                  { time: '16:00', task: '운동 (헬스장 또는 러닝)', done: false },
-                  { time: '18:00', task: '저녁 식사 및 휴식', done: false },
-                  { time: '20:00', task: '독서 및 하루 회고', done: false },
-                ].map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-[55px_1fr_32px] items-center border-b border-line/50 py-3 sm:py-2 min-h-[48px] sm:min-h-[40px]">
+                {schedule.map((item, idx) => (
+                  <div key={idx} className="grid grid-cols-[55px_1fr_32px] items-center border-b border-line/40 py-2 min-h-[48px] transition-all">
                     <span className="font-serif text-sm text-ink-muted">{item.time}</span>
                     <input 
-                      readOnly
+                      type="text"
                       value={item.task}
-                      className="bg-transparent text-sm focus:outline-none placeholder:text-ink/20 truncate pr-2" 
+                      onChange={(e) => updateScheduleTask(idx, e.target.value)}
+                      placeholder="할 일을 입력하세요"
+                      className={`bg-transparent text-sm focus:outline-none placeholder:text-ink/10 truncate pr-2 transition-all ${item.done ? 'line-through text-ink/30 italic' : ''}`} 
                     />
                     <div className="flex justify-end items-center h-full">
-                      <div className={`w-5 h-5 sm:w-4 sm:h-4 cursor-pointer rounded border border-line flex-shrink-0 flex items-center justify-center ${item.done ? 'bg-pastel-orange' : 'bg-white'}`}>
-                        {item.done && <div className="w-1.5 h-1.5 bg-ink/40 rounded-full"></div>}
-                      </div>
+                      <button 
+                        onClick={() => toggleSchedule(idx)}
+                        className={`w-6 h-6 flex items-center justify-center rounded border transition-colors ${item.done ? 'bg-pastel-orange border-pastel-orange' : 'bg-white border-line'}`}
+                      >
+                        {item.done && <Check size={14} className="text-ink/70" />}
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
             </section>
 
-            {/* Tomorrow Section - Adaptive Sticky Note */}
-            <section className="bg-pastel-yellow p-6 rounded-2xl paper-shadow border border-black/5 md:-rotate-1 relative min-h-[140px]">
+            {/* Tomorrow Section */}
+            <section className="bg-pastel-yellow p-6 rounded-2xl paper-shadow border border-black/5 md:-rotate-1 relative min-h-[160px] flex flex-col">
               <div className="absolute top-0 left-0 w-full h-4 bg-white/20 rounded-t-2xl"></div>
-              <h2 className="font-serif text-xl border-b-2 border-pastel-orange inline-block pb-0.5 mb-3 relative z-10">
-                내일 할 일
-              </h2>
-              <div className="text-sm font-light leading-relaxed relative z-10 space-y-1">
-                <p>• 시장조사 보고서 마무리</p>
-                <p>• 요가 수업 예약하기</p>
-                <p>• 비타민 구매</p>
+              <div className="flex justify-between items-center mb-3 relative z-10">
+                <h2 className="font-serif text-xl border-b-2 border-pastel-orange inline-block pb-0.5">
+                  내일 할 일
+                </h2>
+                <Edit3 size={16} className="text-ink/20" />
               </div>
-              {/* Note Corner Curl Effect on Desktop */}
-              <div className="hidden sm:block absolute bottom-0 right-0 w-8 h-8 bg-black/5 rounded-br-2xl clip-path-corner"></div>
+              <textarea 
+                value={tomorrow}
+                onChange={(e) => setTomorrow(e.target.value)}
+                placeholder="내일의 계획을 미리 적어보세요..."
+                className="flex-grow bg-transparent text-sm font-light leading-relaxed relative z-10 w-full resize-none focus:outline-none placeholder:text-ink/20"
+              />
             </section>
           </div>
 
           {/* Right Column */}
           <div className="flex flex-col gap-8 order-1 md:order-2">
-            {/* Today's Goals Section */}
+            {/* Today's Goals */}
             <section className="paper-texture paper-shadow p-5 sm:p-6 rounded-2xl border border-black/5 flex flex-col gap-5">
               <h2 className="font-serif text-xl border-b-2 border-pastel-orange inline-block pb-1 mb-2 self-start">
                 오늘의 목표
               </h2>
               <div className="grid grid-cols-1 gap-3">
-                {[
-                  '주간 업무 우선순위 리스트업 완료',
-                  '물 2L 이상 마시기 (현재 1.5L)',
-                  '가족에게 안부 전화 한 통 하기'
-                ].map((text, i) => (
-                  <div key={i} className="flex items-center gap-3 p-4 bg-[#FDFCF9] rounded-xl border border-line paper-shadow-sm">
+                {goals.map((text, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 sm:p-4 bg-[#FDFCF9] rounded-xl border border-line paper-shadow-sm transition-all focus-within:ring-1 focus-within:ring-pastel-orange/30">
                     <span className="text-pastel-orange text-lg leading-none">●</span>
                     <input 
-                      readOnly
+                      type="text"
                       value={text}
-                      className="bg-transparent w-full text-sm font-light leading-snug" 
+                      onChange={(e) => updateGoal(i, e.target.value)}
+                      placeholder={`목표 ${i + 1}`}
+                      className="bg-transparent w-full text-sm font-light leading-snug focus:outline-none" 
                     />
                   </div>
                 ))}
               </div>
             </section>
 
-            {/* Habit Checklist Section */}
-            <section className="bg-pastel-green p-6 rounded-3xl paper-shadow border border-black/5 flex-grow">
-               <h2 className="font-serif text-xl border-b-2 border-pastel-orange inline-block pb-1 mb-6">
-                 습관 체크리스트
-               </h2>
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                  {[
-                    { label: '영양제 먹기', checked: true },
-                    { label: '영어 단어 10개', checked: false },
-                    { label: '스트레칭 10분', checked: true },
-                    { label: '일기 쓰기', checked: false }
-                  ].map((item, i) => (
-                    <div key={i} className="bg-white/80 backdrop-blur-sm p-4 rounded-xl flex justify-between items-center text-sm border border-black/5 paper-shadow-sm min-h-[56px]">
-                      <span className="font-light">{item.label}</span>
-                      <div className={`w-5 h-5 sm:w-4 sm:h-4 rounded border border-line flex items-center justify-center ${item.checked ? 'bg-ink' : 'bg-white'}`}>
-                        {item.checked && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+            {/* Habit Checklist */}
+            <section className="bg-pastel-green p-6 rounded-3xl paper-shadow border border-black/5 flex flex-col">
+               <div className="flex justify-between items-center mb-6">
+                 <h2 className="font-serif text-xl border-b-2 border-pastel-orange inline-block pb-1">
+                   습관 체크리스트
+                 </h2>
+                 <button 
+                  onClick={addHabit}
+                  className="bg-ink/5 hover:bg-ink/10 p-2 rounded-full transition-colors text-ink/40"
+                 >
+                   <Plus size={16} />
+                 </button>
+               </div>
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {habits.map((item) => (
+                    <div key={item.id} className="bg-white/80 backdrop-blur-sm p-3 rounded-xl flex items-center justify-between gap-3 text-sm border border-black/5 paper-shadow-sm min-h-[56px] group">
+                      <input 
+                        className={`bg-transparent flex-grow font-light focus:outline-none ${item.checked ? 'text-ink/30 italic' : ''}`}
+                        value={item.label}
+                        onChange={(e) => updateHabitLabel(item.id, e.target.value)}
+                      />
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => deleteHabit(item.id)}
+                          className="opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity p-1"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        <button 
+                          onClick={() => toggleHabit(item.id)}
+                          className={`w-6 h-6 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${item.checked ? 'bg-ink border-ink' : 'bg-white border-line'}`}
+                        >
+                          {item.checked && <Check size={14} className="text-white" />}
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -144,26 +272,39 @@ export default function App() {
             </section>
 
             {/* Memo Section */}
-            <section className="p-6 rounded-2xl border-2 border-dashed border-line/60 flex flex-col min-h-[160px]">
+            <section className="p-6 rounded-2xl border-2 border-dashed border-line/60 flex flex-col min-h-[200px] relative">
               <h2 className="font-serif text-xl border-b-2 border-pastel-orange inline-block pb-0.5 mb-4 self-start">
                 메모
               </h2>
-              <div className="flex-grow font-serif leading-relaxed text-ink-muted text-[15px] italic">
-                오늘은 하늘이 참 맑았다. 내일은 조금 더 일찍 일어나서 아침 산책을 다녀오면 좋을 것 같다. 프로젝트 A에 대한 아이디어가 떠올랐는데, 메모해두자.
-              </div>
+              <textarea 
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                placeholder="오늘 하루의 기록을 자유롭게 남겨보세요..."
+                className="flex-grow font-serif leading-relaxed text-ink-muted text-[15px] italic bg-transparent w-full resize-none focus:outline-none placeholder:text-ink/10"
+              />
             </section>
           </div>
 
         </main>
         
-        {/* Footer info for mobile */}
-        <footer className="mt-12 mb-8 text-center md:hidden border-t border-ink/5 pt-6">
+        {/* Mobile Record Button Float (Opt) */}
+        <div className="fixed bottom-6 right-6 md:hidden">
+            <button 
+              onClick={saveData}
+              className="bg-ink text-warm-bg w-14 h-14 rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-transform"
+            >
+              <Save size={24} />
+            </button>
+        </div>
+
+        <footer className="mt-12 mb-8 text-center border-t border-ink/5 pt-6">
           <p className="text-[10px] text-ink-muted uppercase tracking-widest font-medium italic">Handcrafted with care</p>
         </footer>
       </div>
     </div>
   );
 }
+
 
 
 
